@@ -67,7 +67,7 @@ const Index = () => {
     setIsTyping(true);
 
     try {
-      const response = await fetch("http://localhost:3001/chat", {
+      const response = await fetch("api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -79,7 +79,7 @@ const Index = () => {
         throw new Error(`Erro na API: ${response.status}`);
       }
 
-      const data = await response.text(); // <-- pega só texto
+      const data = await response.text();
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
