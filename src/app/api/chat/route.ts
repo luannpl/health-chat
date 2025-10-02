@@ -1,18 +1,51 @@
+import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
-import ollama from "ollama";
 
-export async function GET() {
-  return NextResponse.json({ message: "Hello from agent!" });
-}
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || "",
+});
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { message } = body;
+  try {
+    const body = await req.json();
+    const { message } = body;
 
-  const response = await ollama.chat({
-    model: "gemma3:1b",
-    messages: [{ role: "user", content: message }],
-  });
+    if (!message) {
+      return NextResponse.json(
+        { error: "Message is required" },
+        { status: 400 }
+      );
+    }
 
-  return new NextResponse(response.message.content, { status: 200 });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: message,
+    });
+
+    if (!response) {
+      return NextResponse.json(
+        { error: "Invalid response from AI model" },
+        { status: 500 }
+      );
+    }
+
+    const text = response.text;
+
+    if (!text) {
+      return NextResponse.json({ error: "No text generated" }, { status: 500 });
+    }
+
+    return new NextResponse(text, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+      },
+    });
+  } catch (error) {
+    console.error("Error processing request:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
 }
