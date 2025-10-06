@@ -2,9 +2,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   Send,
-  Paperclip,
-  Mic,
-  StopCircle,
   Activity,
   Settings,
   Menu,
@@ -127,9 +124,6 @@ const Index = () => {
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <button className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Menu className="h-5 w-5" />
-            </button>
 
             <div className="flex items-center gap-2">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-400 shadow-md">
@@ -145,10 +139,6 @@ const Index = () => {
               </div>
             </div>
           </div>
-
-          <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-            <Settings className="h-5 w-5" />
-          </button>
         </div>
       </header>
 
@@ -242,7 +232,6 @@ const Index = () => {
                   );
                 })}
 
-                {/* Typing Indicator */}
                 {isTyping && (
                   <div className="flex gap-3 animate-fade-in">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-400 text-white">
@@ -279,12 +268,7 @@ const Index = () => {
       >
         <div className="mx-auto max-w-4xl">
           <div className="flex items-center gap-2">
-            {/* <button
-              type="button"
-              className="shrink-0 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <Paperclip className="h-5 w-5" />
-            </button> */}
+
 
             <div className="relative flex-1">
               <textarea
@@ -297,18 +281,6 @@ const Index = () => {
                 className="w-full resize-none rounded-2xl border border-gray-300 bg-white px-4 py-3 pr-12 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 min-h-[48px] max-h-[120px]"
                 rows={1}
               />
-
-              {/* <button
-                type="button"
-                onClick={() => setIsRecording(!isRecording)}
-                className="absolute bottom-1.5 right-1.5 h-8 w-8 p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                {isRecording ? (
-                  <StopCircle className="h-5 w-5 text-red-500" />
-                ) : (
-                  <Mic className="h-5 w-5" />
-                )}
-              </button> */}
             </div>
 
             <button
