@@ -14,6 +14,9 @@ import {
   Brain,
   Shield,
   Sparkles,
+  ThumbsUp, // Ícone adicionado
+  ThumbsDown, // Ícone adicionado
+  X, // Ícone adicionado
 } from "lucide-react";
 
 interface Message {
@@ -27,9 +30,18 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
-  // const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // --- NOVOS ESTADOS PARA O FEEDBACK ---
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
+    null
+  );
+  const [feedbackText, setFeedbackText] = useState("");
+  const [placeholderText, setPlaceholderText] = useState("");
+  const [likeStatus, setLikeStatus] = useState<boolean | undefined>(undefined);
+  // ------------------------------------
 
   const suggestions = [
     { icon: Heart, text: "Como posso melhorar minha saúde cardiovascular?" },
@@ -69,9 +81,7 @@ const Index = () => {
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: content }),
       });
 
@@ -121,6 +131,51 @@ const Index = () => {
     handleSendMessage(text);
   };
 
+  // --- NOVAS FUNÇÕES PARA O FEEDBACK ---
+  const handleLike = (messageId: string) => {
+    console.log("Liked message:", messageId);
+    setPlaceholderText("Obrigado pelo feedback! O que você gostou?");
+    setIsFeedbackModalOpen(true);
+    setLikeStatus(true);
+  };
+
+  const handleDislikeClick = (messageId: string) => {
+    setSelectedMessageId(messageId);
+    setPlaceholderText(
+      "Gostariamos de saber como podemos melhorar. Por favor, descreva o problema ou dê uma sugestão..."
+    );
+    setIsFeedbackModalOpen(true);
+    setLikeStatus(false);
+  };
+
+  const handlePostFeedback = async (like: boolean, feedback?: string) => {
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ like, feedback }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao enviar feedback: ${response.status}`);
+      }
+
+      console.log("Feedback enviado com sucesso");
+    } catch (error) {
+      console.error("Erro ao enviar feedback:", error);
+    } finally {
+      handleCloseModal();
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsFeedbackModalOpen(false);
+    setFeedbackText("");
+    setSelectedMessageId(null);
+  };
+
+  // ------------------------------------
+
   return (
     <div className="flex h-screen flex-col bg-gradient-to-br from-gray-50 to-teal-50">
       {/* Header */}
@@ -130,7 +185,6 @@ const Index = () => {
             <button className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors">
               <Menu className="h-5 w-5" />
             </button>
-
             <div className="flex items-center gap-2">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-400 shadow-md">
                 <Activity className="h-6 w-6 text-white" />
@@ -145,7 +199,6 @@ const Index = () => {
               </div>
             </div>
           </div>
-
           <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
             <Settings className="h-5 w-5" />
           </button>
@@ -231,12 +284,41 @@ const Index = () => {
                             {message.content}
                           </p>
                         </div>
-                        <span className="text-xs text-gray-500 px-2">
-                          {message.timestamp.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
+                        <div className="flex items-center justify-between w-full px-2">
+                          <span className="text-xs text-gray-500">
+                            {message.timestamp.toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+
+                          {/* --- BOTÕES DE AVALIAÇÃO --- */}
+                          {!isUser && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleLike(message.id)}
+                                className={`${
+                                  likeStatus === true
+                                    ? "text-teal-500"
+                                    : "text-gray-400 hover:text-teal-500"
+                                } p-1 hover:transition-colors cursor-pointer`}
+                              >
+                                <ThumbsUp className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDislikeClick(message.id)}
+                                className={`${
+                                  likeStatus === false
+                                    ? "text-red-500"
+                                    : "text-gray-400 hover:text-red-500"
+                                } p-1 hover:transition-colors cursor-pointer`}
+                              >
+                                <ThumbsDown className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+                          {/* --------------------------- */}
+                        </div>
                       </div>
                     </div>
                   );
@@ -251,15 +333,15 @@ const Index = () => {
 
                     <div className="flex items-center gap-1 rounded-2xl bg-white border border-gray-200 px-4 py-3 shadow-sm">
                       <span
-                        className="h-2 w-2 animate-pulse-soft rounded-full bg-gray-400"
+                        className="h-2 w-2 animate-bounce rounded-full bg-green-400"
                         style={{ animationDelay: "0ms" }}
                       />
                       <span
-                        className="h-2 w-2 animate-pulse-soft rounded-full bg-gray-400"
+                        className="h-2 w-2 animate-bounce rounded-full bg-green-400"
                         style={{ animationDelay: "150ms" }}
                       />
                       <span
-                        className="h-2 w-2 animate-pulse-soft rounded-full bg-gray-400"
+                        className="h-2 w-2 animate-bounce rounded-full bg-green-400"
                         style={{ animationDelay: "300ms" }}
                       />
                     </div>
@@ -279,13 +361,6 @@ const Index = () => {
       >
         <div className="mx-auto max-w-4xl">
           <div className="flex items-center gap-2">
-            {/* <button
-              type="button"
-              className="shrink-0 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <Paperclip className="h-5 w-5" />
-            </button> */}
-
             <div className="relative flex-1">
               <textarea
                 ref={textareaRef}
@@ -297,20 +372,7 @@ const Index = () => {
                 className="w-full resize-none rounded-2xl border border-gray-300 bg-white px-4 py-3 pr-12 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 min-h-[48px] max-h-[120px]"
                 rows={1}
               />
-
-              {/* <button
-                type="button"
-                onClick={() => setIsRecording(!isRecording)}
-                className="absolute bottom-1.5 right-1.5 h-8 w-8 p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                {isRecording ? (
-                  <StopCircle className="h-5 w-5 text-red-500" />
-                ) : (
-                  <Mic className="h-5 w-5" />
-                )}
-              </button> */}
             </div>
-
             <button
               type="submit"
               disabled={!inputMessage.trim() || isTyping}
@@ -319,12 +381,62 @@ const Index = () => {
               <Send className="h-4 w-4" />
             </button>
           </div>
-
           <p className="mt-2 text-center text-xs text-gray-500">
             HealthChat 1.0
           </p>
         </div>
       </form>
+
+      {/* --- MODAL DE FEEDBACK --- */}
+      {isFeedbackModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Forneça seu feedback
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="p-1 text-gray-400 hover:text-gray-700 rounded-full"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handlePostFeedback(
+                  likeStatus!,
+                  feedbackText.trim() || undefined
+                );
+              }}
+            >
+              <textarea
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                placeholder={placeholderText}
+                className="w-full h-28 resize-none rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!feedbackText.trim()}
+                  className="px-4 py-2 text-sm font-medium text-white bg-teal-500 rounded-md hover:bg-teal-600 disabled:bg-teal-300 cursor-pointer disabled:cursor-not-allowed "
+                >
+                  Enviar Feedback
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ------------------------- */}
     </div>
   );
 };
