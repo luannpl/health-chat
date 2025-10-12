@@ -15,6 +15,8 @@ import {
   ThumbsDown, // Ícone adicionado
   X, // Ícone adicionado
 } from "lucide-react";
+import { Rate } from "antd";
+
 
 interface Message {
   id: string;
@@ -36,6 +38,7 @@ const Index = () => {
     null
   );
   const [feedbackText, setFeedbackText] = useState("");
+  const [hasRatedLastResponse, setHasRatedLastResponse] = useState(true);
   const [placeholderText, setPlaceholderText] = useState("");
   const [likeStatus, setLikeStatus] = useState<boolean | undefined>(undefined);
   // ------------------------------------
@@ -96,6 +99,7 @@ const Index = () => {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      setHasRatedLastResponse(false);
     } catch (error) {
       console.error(error);
 
@@ -241,16 +245,14 @@ const Index = () => {
                   return (
                     <div
                       key={message.id}
-                      className={`flex gap-3 animate-fade-in ${
-                        isUser ? "flex-row-reverse" : "flex-row"
-                      }`}
+                      className={`flex gap-3 animate-fade-in ${isUser ? "flex-row-reverse" : "flex-row"
+                        }`}
                     >
                       <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                          isUser
-                            ? "bg-teal-400 text-white"
-                            : "bg-gradient-to-br from-cyan-400 to-teal-400 text-white"
-                        }`}
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isUser
+                          ? "bg-teal-400 text-white"
+                          : "bg-gradient-to-br from-cyan-400 to-teal-400 text-white"
+                          }`}
                       >
                         {isUser ? (
                           <User className="h-4 w-4" />
@@ -260,16 +262,14 @@ const Index = () => {
                       </div>
 
                       <div
-                        className={`flex max-w-[70%] flex-col gap-1 ${
-                          isUser ? "items-end" : "items-start"
-                        }`}
+                        className={`flex max-w-[70%] flex-col gap-1 ${isUser ? "items-end" : "items-start"
+                          }`}
                       >
                         <div
-                          className={`rounded-2xl px-4 py-2.5 shadow-sm ${
-                            isUser
-                              ? "bg-teal-400 text-white"
-                              : "bg-white border border-gray-200"
-                          }`}
+                          className={`rounded-2xl px-4 py-2.5 shadow-sm ${isUser
+                            ? "bg-teal-400 text-white"
+                            : "bg-white border border-gray-200"
+                            }`}
                         >
                           <p className="text-sm leading-relaxed whitespace-pre-wrap">
                             {message.content}
@@ -286,26 +286,22 @@ const Index = () => {
                           {/* --- BOTÕES DE AVALIAÇÃO --- */}
                           {!isUser && (
                             <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleLike(message.id)}
-                                className={`${
-                                  likeStatus === true
-                                    ? "text-teal-500"
-                                    : "text-gray-400 hover:text-teal-500"
-                                } p-1 hover:transition-colors cursor-pointer`}
-                              >
-                                <ThumbsUp className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDislikeClick(message.id)}
-                                className={`${
-                                  likeStatus === false
-                                    ? "text-red-500"
-                                    : "text-gray-400 hover:text-red-500"
-                                } p-1 hover:transition-colors cursor-pointer`}
-                              >
-                                <ThumbsDown className="h-4 w-4" />
-                              </button>
+                              <Rate
+                                allowClear
+                                onChange={(value) => {
+                                  setSelectedMessageId(message.id);
+                                  setIsFeedbackModalOpen(true);
+                                  setLikeStatus(value >= 3);
+                                  setPlaceholderText(
+                                    value >= 3
+                                      ? "Obrigado pelo feedback! O que você mais gostou?"
+                                      : "Como podemos melhorar esta resposta?"
+                                  );
+
+                                  setHasRatedLastResponse(true);
+                                }}
+                              />
+
                             </div>
                           )}
                           {/* --------------------------- */}
@@ -357,15 +353,19 @@ const Index = () => {
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Digite sua mensagem..."
-                disabled={isTyping}
+                placeholder={
+                  hasRatedLastResponse
+                    ? "Digite sua mensagem..."
+                    : "Avalie a última resposta para poder enviar..."
+                }
+                disabled={isTyping || !hasRatedLastResponse}
                 className="w-full resize-none rounded-2xl border border-gray-300 bg-white px-4 py-3 pr-12 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 min-h-[48px] max-h-[120px]"
                 rows={1}
               />
             </div>
             <button
               type="submit"
-              disabled={!inputMessage.trim() || isTyping}
+              disabled={!inputMessage.trim() || isTyping || !hasRatedLastResponse}
               className="shrink-0 h-10 w-10 rounded-full cursor-pointer bg-gradient-to-r from-teal-400 to-cyan-400 hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center text-white "
             >
               <Send className="h-4 w-4" />
