@@ -1,29 +1,79 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
+import ReactMarkdown from 'react-markdown';
 import {
   Send,
   Activity,
-  Settings,
-  Menu,
-  Bot,
   User,
+  Bot,
   Heart,
   Brain,
   Shield,
   Sparkles,
-  ThumbsUp, // Ícone adicionado
-  ThumbsDown, // Ícone adicionado
-  X, // Ícone adicionado
+  X,
 } from "lucide-react";
 import { Rate } from "antd";
-
 
 interface Message {
   id: string;
   content: string;
   role: "user" | "assistant";
   timestamp: Date;
+  rated?: boolean;
 }
+
+// Componente para mensagens formatadas
+const FormattedMessage: React.FC<{ content: string; isUser: boolean }> = ({ 
+  content, 
+  isUser 
+}) => {
+  return (
+    <div className={`text-sm leading-relaxed ${isUser ? 'text-white' : 'text-gray-800'}`}>
+      <ReactMarkdown
+        components={{
+          strong: ({ children }) => (
+            <strong className={`font-semibold ${isUser ? 'text-white' : 'text-gray-900'}`}>
+              {children}
+            </strong>
+          ),
+          em: ({ children }) => (
+            <em className="italic">{children}</em>
+          ),
+          p: ({ children }) => (
+            <p className="mb-2 last:mb-0">{children}</p>
+          ),
+          ul: ({ children }) => (
+            <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>
+          ),
+          li: ({ children }) => (
+            <li className="pl-1">{children}</li>
+          ),
+          code: ({ children }) => (
+            <code className={`rounded px-1.5 py-0.5 text-xs font-mono ${
+              isUser 
+                ? 'bg-white/20 text-white' 
+                : 'bg-gray-100 text-gray-800'
+            }`}>
+              {children}
+            </code>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote className={`border-l-4 pl-3 italic my-2 ${
+              isUser ? 'border-white/50' : 'border-gray-300 text-gray-600'
+            }`}>
+              {children}
+            </blockquote>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+};
 
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -32,16 +82,11 @@ const Index = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- NOVOS ESTADOS PARA O FEEDBACK ---
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
-  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
-    null
-  );
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [feedbackText, setFeedbackText] = useState("");
-  const [hasRatedLastResponse, setHasRatedLastResponse] = useState(true);
   const [placeholderText, setPlaceholderText] = useState("");
   const [likeStatus, setLikeStatus] = useState<boolean | undefined>(undefined);
-  // ------------------------------------
 
   const suggestions = [
     { icon: Heart, text: "Como posso melhorar minha saúde cardiovascular?" },
@@ -49,6 +94,16 @@ const Index = () => {
     { icon: Shield, text: "Quais vitaminas são essenciais para imunidade?" },
     { icon: Sparkles, text: "Crie um plano de exercícios personalizado" },
   ];
+
+  const hasRatedLastResponse = () => {
+    if (messages.length === 0) return true;
+    
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find(msg => msg.role === "assistant");
+    
+    return !lastAssistantMessage || lastAssistantMessage.rated === true;
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -65,7 +120,7 @@ const Index = () => {
   }, [inputMessage]);
 
   const handleSendMessage = async (content: string) => {
-    if (!content.trim() || isTyping) return;
+    if (!content.trim() || isTyping || !hasRatedLastResponse()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -96,10 +151,10 @@ const Index = () => {
         content: data,
         role: "assistant",
         timestamp: new Date(),
+        rated: false,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-      setHasRatedLastResponse(false);
     } catch (error) {
       console.error(error);
 
@@ -108,6 +163,7 @@ const Index = () => {
         content: "⚠️ Ocorreu um erro ao se conectar com o servidor.",
         role: "assistant",
         timestamp: new Date(),
+        rated: true,
       };
 
       setMessages((prev) => [...prev, errorMessage]);
@@ -132,21 +188,23 @@ const Index = () => {
     handleSendMessage(text);
   };
 
-  // --- NOVAS FUNÇÕES PARA O FEEDBACK ---
-  const handleLike = (messageId: string) => {
-    console.log("Liked message:", messageId);
-    setPlaceholderText("Obrigado pelo feedback! O que você gostou?");
-    setIsFeedbackModalOpen(true);
-    setLikeStatus(true);
-  };
-
-  const handleDislikeClick = (messageId: string) => {
-    setSelectedMessageId(messageId);
-    setPlaceholderText(
-      "Gostariamos de saber como podemos melhorar. Por favor, descreva o problema ou dê uma sugestão..."
+  const handleRate = (messageId: string, value: number) => {
+    setMessages(prev => 
+      prev.map(msg => 
+        msg.id === messageId 
+          ? { ...msg, rated: true }
+          : msg
+      )
     );
+
+    setSelectedMessageId(messageId);
     setIsFeedbackModalOpen(true);
-    setLikeStatus(false);
+    setLikeStatus(value >= 3);
+    setPlaceholderText(
+      value >= 3
+        ? "Obrigado pelo feedback! O que você mais gostou?"
+        : "Como podemos melhorar esta resposta?"
+    );
   };
 
   const handlePostFeedback = async (like: boolean, feedback?: string) => {
@@ -154,7 +212,11 @@ const Index = () => {
       const response = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ like, feedback }),
+        body: JSON.stringify({ 
+          like, 
+          feedback,
+          messageId: selectedMessageId 
+        }),
       });
 
       if (!response.ok) {
@@ -174,8 +236,6 @@ const Index = () => {
     setFeedbackText("");
     setSelectedMessageId(null);
   };
-
-  // ------------------------------------
 
   return (
     <div className="flex h-screen flex-col bg-gradient-to-br from-gray-50 to-teal-50">
@@ -271,9 +331,10 @@ const Index = () => {
                             : "bg-white border border-gray-200"
                             }`}
                         >
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                            {message.content}
-                          </p>
+                          <FormattedMessage 
+                            content={message.content} 
+                            isUser={isUser} 
+                          />
                         </div>
                         <div className="flex items-center justify-between w-full px-2">
                           <span className="text-xs text-gray-500">
@@ -283,28 +344,15 @@ const Index = () => {
                             })}
                           </span>
 
-                          {/* --- BOTÕES DE AVALIAÇÃO --- */}
+                          {/* Botões de Avaliação */}
                           {!isUser && (
                             <div className="flex items-center gap-2">
                               <Rate
                                 allowClear
-                                onChange={(value) => {
-                                  setSelectedMessageId(message.id);
-                                  setIsFeedbackModalOpen(true);
-                                  setLikeStatus(value >= 3);
-                                  setPlaceholderText(
-                                    value >= 3
-                                      ? "Obrigado pelo feedback! O que você mais gostou?"
-                                      : "Como podemos melhorar esta resposta?"
-                                  );
-
-                                  setHasRatedLastResponse(true);
-                                }}
+                                onChange={(value) => handleRate(message.id, value)}
                               />
-
                             </div>
                           )}
-                          {/* --------------------------- */}
                         </div>
                       </div>
                     </div>
@@ -354,18 +402,18 @@ const Index = () => {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={
-                  hasRatedLastResponse
+                  hasRatedLastResponse()
                     ? "Digite sua mensagem..."
                     : "Avalie a última resposta para poder enviar..."
                 }
-                disabled={isTyping || !hasRatedLastResponse}
+                disabled={isTyping || !hasRatedLastResponse()}
                 className="w-full resize-none rounded-2xl border border-gray-300 bg-white px-4 py-3 pr-12 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 min-h-[48px] max-h-[120px]"
                 rows={1}
               />
             </div>
             <button
               type="submit"
-              disabled={!inputMessage.trim() || isTyping || !hasRatedLastResponse}
+              disabled={!inputMessage.trim() || isTyping || !hasRatedLastResponse()}
               className="shrink-0 h-10 w-10 rounded-full cursor-pointer bg-gradient-to-r from-teal-400 to-cyan-400 hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center text-white "
             >
               <Send className="h-4 w-4" />
@@ -377,7 +425,7 @@ const Index = () => {
         </div>
       </form>
 
-      {/* --- MODAL DE FEEDBACK --- */}
+      {/* Modal de Feedback */}
       {isFeedbackModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in backdrop-blur-sm">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
@@ -409,15 +457,15 @@ const Index = () => {
               />
               <div className="flex justify-end gap-2 mt-4">
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleCloseModal}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={!feedbackText.trim()}
-                  className="px-4 py-2 text-sm font-medium text-white bg-teal-500 rounded-md hover:bg-teal-600 disabled:bg-teal-300 cursor-pointer disabled:cursor-not-allowed "
+                  className="px-4 py-2 text-sm font-medium text-white bg-teal-500 rounded-md hover:bg-teal-600 cursor-pointer"
                 >
                   Enviar Feedback
                 </button>
@@ -426,7 +474,6 @@ const Index = () => {
           </div>
         </div>
       )}
-      {/* ------------------------- */}
     </div>
   );
 };
