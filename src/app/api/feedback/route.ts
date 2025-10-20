@@ -5,15 +5,16 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   await connectToDB();
 
-  const body: { like: number; feedback?: string } = await req.json();
-  const { like, feedback } = body;
-  if (like === undefined) {
-    return NextResponse.json({ error: "Like é obrigatória" }, { status: 400 });
+  const body: { rate: number; feedback?: string } = await req.json();
+  const { rate, feedback } = body;
+  console.log("Recebido feedback:", { rate, feedback });
+  if (rate === undefined) {
+    return NextResponse.json({ error: "Rate é obrigatório" }, { status: 400 });
   }
 
   const feedbackDoc = await FeedBack.create({
-    like,
-    feedback,
+    rate,
+    feedback
   });
 
   return NextResponse.json(feedbackDoc, { status: 201 });
