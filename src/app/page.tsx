@@ -146,6 +146,7 @@ const Index = () => {
       )}px`;
     }
   }, [inputMessage]);
+  console.log(1);
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || isTyping || !hasRatedLastResponse()) return;
