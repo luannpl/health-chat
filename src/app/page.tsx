@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown from "react-markdown";
 import {
   Send,
   Activity,
@@ -11,59 +11,66 @@ import {
   Shield,
   Sparkles,
   X,
+  BookOpen, // Ícone para fontes
 } from "lucide-react";
 import { Rate } from "antd";
 
 interface Message {
   id: string;
-  content: string;
+  content: string; // Agora armazena apenas o 'answer'
   role: "user" | "assistant";
   timestamp: Date;
   rated?: boolean;
+  sources?: string[]; // Novo campo para as fontes
 }
 
-// Componente para mensagens formatadas
-const FormattedMessage: React.FC<{ content: string; isUser: boolean }> = ({ 
-  content, 
-  isUser 
-}) => {
+// Componente para mensagens formatadas (Renomeado e atualizado)
+const MessageContent: React.FC<{
+  content: string;
+  isUser: boolean;
+  sources?: string[]; // Aceita fontes
+}> = ({ content, isUser, sources }) => {
+  const hasSources = sources && sources.length > 0;
+
   return (
-    <div className={`text-sm leading-relaxed ${isUser ? 'text-white' : 'text-gray-800'}`}>
+    <div>
       <ReactMarkdown
         components={{
           strong: ({ children }) => (
-            <strong className={`font-semibold ${isUser ? 'text-white' : 'text-gray-900'}`}>
+            <strong
+              className={`font-semibold ${
+                isUser ? "text-white" : "text-gray-900"
+              }`}
+            >
               {children}
             </strong>
           ),
-          em: ({ children }) => (
-            <em className="italic">{children}</em>
-          ),
-          p: ({ children }) => (
-            <p className="mb-2 last:mb-0">{children}</p>
-          ),
+          em: ({ children }) => <em className="italic">{children}</em>,
+          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
           ul: ({ children }) => (
             <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>
+            <ol className="list-decimal list-inside mb-2 space-y-1">
+              {children}
+            </ol>
           ),
-          li: ({ children }) => (
-            <li className="pl-1">{children}</li>
-          ),
+          li: ({ children }) => <li className="pl-1">{children}</li>,
           code: ({ children }) => (
-            <code className={`rounded px-1.5 py-0.5 text-xs font-mono ${
-              isUser 
-                ? 'bg-white/20 text-white' 
-                : 'bg-gray-100 text-gray-800'
-            }`}>
+            <code
+              className={`rounded px-1.5 py-0.5 text-xs font-mono ${
+                isUser ? "bg-white/20 text-white" : "bg-gray-100 text-gray-800"
+              }`}
+            >
               {children}
             </code>
           ),
           blockquote: ({ children }) => (
-            <blockquote className={`border-l-4 pl-3 italic my-2 ${
-              isUser ? 'border-white/50' : 'border-gray-300 text-gray-600'
-            }`}>
+            <blockquote
+              className={`border-l-4 pl-3 italic my-2 ${
+                isUser ? "border-white/50" : "border-gray-300 text-gray-600"
+              }`}
+            >
               {children}
             </blockquote>
           ),
@@ -71,24 +78,44 @@ const FormattedMessage: React.FC<{ content: string; isUser: boolean }> = ({
       >
         {content}
       </ReactMarkdown>
+
+      {/* Seção de Fontes (Apenas para assistente) */}
+      {hasSources && !isUser && (
+        <div className="mt-3 pt-2.5 border-t border-gray-200">
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
+            <BookOpen className="h-3.5 w-3.5" />
+            Fontes e Princípios
+          </h4>
+          <ul className="list-disc list-inside space-y-0.5 pl-1">
+            {sources.map((source, index) => (
+              <li key={index} className="text-xs text-gray-600">
+                {source}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };
 
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
+  // ... (outros estados permanecem iguais)
   const [isTyping, setIsTyping] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
+  const [rate, setRate] = useState<number | undefined>(undefined);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
-  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
+    null
+  );
   const [feedbackText, setFeedbackText] = useState("");
   const [placeholderText, setPlaceholderText] = useState("");
-  const [likeStatus, setLikeStatus] = useState<boolean | undefined>(undefined);
 
   const suggestions = [
+    // ... (sugestões permanecem iguais)
     { icon: Heart, text: "Como posso melhorar minha saúde cardiovascular?" },
     { icon: Brain, text: "Dicas para reduzir o estresse e ansiedade" },
     { icon: Shield, text: "Quais vitaminas são essenciais para imunidade?" },
@@ -96,20 +123,21 @@ const Index = () => {
   ];
 
   const hasRatedLastResponse = () => {
+    // ... (função permanece igual)
     if (messages.length === 0) return true;
-    
     const lastAssistantMessage = [...messages]
       .reverse()
-      .find(msg => msg.role === "assistant");
-    
+      .find((msg) => msg.role === "assistant");
     return !lastAssistantMessage || lastAssistantMessage.rated === true;
   };
 
   useEffect(() => {
+    // ... (useEffect permanece igual)
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
   useEffect(() => {
+    // ... (useEffect permanece igual)
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(
@@ -127,6 +155,7 @@ const Index = () => {
       content,
       role: "user",
       timestamp: new Date(),
+      // sources não se aplica ao usuário
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -144,11 +173,17 @@ const Index = () => {
         throw new Error(`Erro na API: ${response.status}`);
       }
 
-      const data = await response.text();
+      // MUDANÇA: Espera .json() ao invés de .text()
+      const data = await response.json();
+
+      if (!data.answer) {
+        throw new Error("Resposta da API em formato inválido");
+      }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data,
+        content: data.answer, // Salva o 'answer'
+        sources: data.sources, // Salva as 'sources'
         role: "assistant",
         timestamp: new Date(),
         rated: false,
@@ -164,6 +199,7 @@ const Index = () => {
         role: "assistant",
         timestamp: new Date(),
         rated: true,
+        sources: [], // Erro não tem fontes
       };
 
       setMessages((prev) => [...prev, errorMessage]);
@@ -172,6 +208,7 @@ const Index = () => {
     }
   };
 
+  // ... (handleSubmit, handleKeyDown, handleSuggestionClick, handleRate, submitFeedback, handlePostFeedback, handleCloseModal permanecem iguais)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleSendMessage(inputMessage);
@@ -189,17 +226,12 @@ const Index = () => {
   };
 
   const handleRate = (messageId: string, value: number) => {
-    setMessages(prev => 
-      prev.map(msg => 
-        msg.id === messageId 
-          ? { ...msg, rated: true }
-          : msg
-      )
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === messageId ? { ...msg, rated: true } : msg))
     );
-
+    setRate(value);
     setSelectedMessageId(messageId);
     setIsFeedbackModalOpen(true);
-    setLikeStatus(value >= 3);
     setPlaceholderText(
       value >= 3
         ? "Obrigado pelo feedback! O que você mais gostou?"
@@ -207,23 +239,23 @@ const Index = () => {
     );
   };
 
-  const handlePostFeedback = async (like: boolean, feedback?: string) => {
+  const submitFeedback = async (rate?: number, feedback?: string) => {
+    if (rate === undefined) return;
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rate, feedback }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro ao enviar feedback: ${response.status}`);
+    }
+    console.log("Feedback enviado com sucesso");
+  };
+
+  const handlePostFeedback = async (rate?: number, feedback?: string) => {
     try {
-      const response = await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          like, 
-          feedback,
-          messageId: selectedMessageId 
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erro ao enviar feedback: ${response.status}`);
-      }
-
-      console.log("Feedback enviado com sucesso");
+      await submitFeedback(rate, feedback);
     } catch (error) {
       console.error("Erro ao enviar feedback:", error);
     } finally {
@@ -237,9 +269,11 @@ const Index = () => {
     setSelectedMessageId(null);
   };
 
+  console.log("Rendered with messages:", messages);
+
   return (
     <div className="flex h-screen flex-col bg-gradient-to-br from-gray-50 to-teal-50">
-      {/* Header */}
+      {/* Header (sem alterações) */}
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -265,7 +299,7 @@ const Index = () => {
         <div className="h-full overflow-y-auto px-4 py-6">
           <div className="mx-auto max-w-4xl space-y-6">
             {messages.length === 0 ? (
-              /* Welcome Message */
+              /* Welcome Message (sem alterações) */
               <div className="flex flex-col items-center justify-center h-full animate-fade-in">
                 <div className="max-w-2xl text-center px-4">
                   <div className="mb-8">
@@ -305,14 +339,16 @@ const Index = () => {
                   return (
                     <div
                       key={message.id}
-                      className={`flex gap-3 animate-fade-in ${isUser ? "flex-row-reverse" : "flex-row"
-                        }`}
+                      className={`flex gap-3 animate-fade-in ${
+                        isUser ? "flex-row-reverse" : "flex-row"
+                      }`}
                     >
                       <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isUser
-                          ? "bg-teal-400 text-white"
-                          : "bg-gradient-to-br from-cyan-400 to-teal-400 text-white"
-                          }`}
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                          isUser
+                            ? "bg-teal-400 text-white"
+                            : "bg-gradient-to-br from-cyan-400 to-teal-400 text-white"
+                        }`}
                       >
                         {isUser ? (
                           <User className="h-4 w-4" />
@@ -322,18 +358,22 @@ const Index = () => {
                       </div>
 
                       <div
-                        className={`flex max-w-[70%] flex-col gap-1 ${isUser ? "items-end" : "items-start"
-                          }`}
+                        className={`flex max-w-[70%] flex-col gap-1 ${
+                          isUser ? "items-end" : "items-start"
+                        }`}
                       >
                         <div
-                          className={`rounded-2xl px-4 py-2.5 shadow-sm ${isUser
-                            ? "bg-teal-400 text-white"
-                            : "bg-white border border-gray-200"
-                            }`}
+                          className={`rounded-2xl px-4 py-2.5 shadow-sm ${
+                            isUser
+                              ? "bg-teal-400 text-white"
+                              : "bg-white border border-gray-200"
+                          }`}
                         >
-                          <FormattedMessage 
-                            content={message.content} 
-                            isUser={isUser} 
+                          {/* MUDANÇA: Usando MessageContent e passando sources */}
+                          <MessageContent
+                            content={message.content}
+                            isUser={isUser}
+                            sources={message.sources}
                           />
                         </div>
                         <div className="flex items-center justify-between w-full px-2">
@@ -344,12 +384,15 @@ const Index = () => {
                             })}
                           </span>
 
-                          {/* Botões de Avaliação */}
+                          {/* Botões de Avaliação (sem alterações) */}
                           {!isUser && (
                             <div className="flex items-center gap-2">
                               <Rate
                                 allowClear
-                                onChange={(value) => handleRate(message.id, value)}
+                                disabled={message.rated}
+                                onChange={(value) => {
+                                  handleRate(message.id, value);
+                                }}
                               />
                             </div>
                           )}
@@ -359,12 +402,12 @@ const Index = () => {
                   );
                 })}
 
+                {/* Typing Indicator (sem alterações) */}
                 {isTyping && (
                   <div className="flex gap-3 animate-fade-in">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-400 text-white">
                       <Bot className="h-4 w-4" />
                     </div>
-
                     <div className="flex items-center gap-1 rounded-2xl bg-white border border-gray-200 px-4 py-3 shadow-sm">
                       <span
                         className="h-2 w-2 animate-bounce rounded-full bg-green-400"
@@ -388,7 +431,7 @@ const Index = () => {
         </div>
       </main>
 
-      {/* Input Area */}
+      {/* Input Area (sem alterações) */}
       <form
         onSubmit={handleSubmit}
         className="border-t border-gray-200 bg-white p-4"
@@ -413,7 +456,9 @@ const Index = () => {
             </div>
             <button
               type="submit"
-              disabled={!inputMessage.trim() || isTyping || !hasRatedLastResponse()}
+              disabled={
+                !inputMessage.trim() || isTyping || !hasRatedLastResponse()
+              }
               className="shrink-0 h-10 w-10 rounded-full cursor-pointer bg-gradient-to-r from-teal-400 to-cyan-400 hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center text-white "
             >
               <Send className="h-4 w-4" />
@@ -425,7 +470,7 @@ const Index = () => {
         </div>
       </form>
 
-      {/* Modal de Feedback */}
+      {/* Modal de Feedback (sem alterações) */}
       {isFeedbackModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in backdrop-blur-sm">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
@@ -434,7 +479,9 @@ const Index = () => {
                 Forneça seu feedback
               </h2>
               <button
-                onClick={handleCloseModal}
+                onClick={() =>
+                  handlePostFeedback(rate, feedbackText.trim() || undefined)
+                }
                 className="p-1 text-gray-400 hover:text-gray-700 rounded-full"
               >
                 <X className="h-5 w-5" />
@@ -443,10 +490,7 @@ const Index = () => {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                handlePostFeedback(
-                  likeStatus!,
-                  feedbackText.trim() || undefined
-                );
+                handlePostFeedback(rate, feedbackText.trim() || undefined);
               }}
             >
               <textarea
@@ -458,7 +502,9 @@ const Index = () => {
               <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
-                  onClick={handleCloseModal}
+                  onClick={() =>
+                    handlePostFeedback(rate, feedbackText.trim() || undefined)
+                  }
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                 >
                   Cancelar
@@ -471,6 +517,7 @@ const Index = () => {
                 </button>
               </div>
             </form>
+            {/* r: n - removendo o 'r: n' solto que estava no seu código original */}
           </div>
         </div>
       )}
