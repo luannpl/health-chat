@@ -1,11 +1,12 @@
 // Importando do pacote correto
+import { searchHealthSources, HealthSource } from "@/lib/searchHealthSources";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
 // Instanciação correta
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-// O SYSTEM_PROMPT (exigindo JSON) permanece o mesmo
+// MODIFICADO: O system prompt foi ajustado para remover os títulos
 const SYSTEM_PROMPT = `Você é um assistente virtual especializado EXCLUSIVAMENTE em saúde e bem-estar, com conhecimento em:
 
 - Nutrição e alimentação saudável
@@ -28,7 +29,10 @@ DIRETRIZES IMPORTANTES:
 6. Promova uma abordagem holística: corpo, mente e bem-estar emocional
 7. Nunca prescreva medicamentos ou tratamentos específicos
 8. Incentive hábitos sustentáveis e mudanças graduais, não radicais
-9. FUNDAMENTE SUAS RESPOSTAS: Sempre que fornecer informações ou recomendações, mencione o tipo de consenso científico, diretriz de organização de saúde (como OMS, sociedades médicas) ou princípio estabelecido (como princípios da nutrição, ergonomia) em que se baseia.
+
+9. MODIFICADO: FUNDAMENTE SUAS RESPOSTAS (EM DUAS PARTES):
+   - **Primeiro Bloco de Texto:** A resposta inicial DEVE ser baseada **EXCLUSIVAMENTE** nas fontes de contexto fornecidas. **Sempre que usar uma informação de uma fonte, cite-a** usando o formato \`[Fonte X]\`.
+   - **Parágrafo Final (Separado):** Após a resposta factual (e em um novo parágrafo), adicione os contrapontos. Nesta parte, use seu **conhecimento interno** para fornecer riscos, ou visões alternativas que não estavam nas fontes.
 
 LIMITAÇÕES DE ESCOPO - MUITO IMPORTANTE:
 
@@ -45,142 +49,102 @@ ESTILO DE COMUNICAÇÃO:
 
 FORMATO DE RESPOSTA OBRIGATÓRIO:
 
-- Responda SEMPRE com um objeto JSON válido, sem nenhum texto antes ou depois.
-- O JSON deve ter a seguinte estrutura:
-{
-  "answer": "...",
-  "sources": ["..."]
-}
-- "answer": (string) A sua resposta completa ao usuário, seguindo todas as diretrizes de comunicação.
-- "sources": (array de strings) A lista de fontes/princípios em que a resposta se baseou (ex: "Organização Mundial da Saúde", "Consenso científico sobre hidratação", "Princípios da ergonomia").
-- Se você recusar a pergunta (fora do escopo), "answer" deve conter a recusa (ex: "Desculpe, sou especializado apenas em saúde e bem-estar..."), e "sources" deve ser um array vazio [].
-- Exemplo de resposta sobre nutrição:
-{
-  "answer": "Uma ótima forma de começar o dia é com uma combinação de proteínas e fibras. Por exemplo, aveia com frutas e um punhado de castanhas. Isso ajuda na saciedade e fornece energia gradual.",
-  "sources": ["Princípios da nutrição funcional", "Consenso sobre alimentação saudável matinal"]
-}
-- Exemplo de recusa:
-{
-  "answer": "Desculpe, sou especializado apenas em saúde e bem-estar. Posso ajudar com dúvidas sobre nutrição, exercícios, saúde mental, sono, ou outros aspectos relacionados ao seu bem-estar, fornecendo informações baseadas em evidências e práticas reconhecidas. Como posso auxiliar nessas áreas?",
-  "sources": []
-}
+- Responda APENAS com o texto da resposta (string pura), sem nenhum JSON.
+- A resposta deve ser completa, empática e estruturada em dois blocos de texto separados por uma quebra de linha.
+- **NÃO use títulos** como "Resposta Principal" ou "Pontos de Atenção".
+- **NÃO use negrito** para os títulos.
+- O primeiro bloco NÃO DEVE conter as citações \`[Fonte X]\`.
+- O segundo bloco (contrapontos) NÃO deve conter citações \`[Fonte X]\`.
 `;
 
 export async function POST(req: Request) {
+  console.log("🟢 [API] Requisição recebida no endpoint /api/chat");
+
   try {
     const body = await req.json();
     const { message } = body;
 
+    console.log("📨 Mensagem recebida do usuário");
+
     if (!message) {
-      return NextResponse.json(
-        { error: "Message is required" },
-        { status: 400 }
-      );
+      console.warn("⚠️ Nenhuma mensagem foi fornecida.");
+      return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
-    // Obter o modelo com a configuração de JSON
+    // Etapa 1: Buscar fontes ANTES (RAG)
+    console.log("🌐 [Etapa 1] Iniciando busca online de fontes (RAG)...");
+    const sourcesArray: HealthSource[] = await searchHealthSources(message);
+    console.log("✅ Busca concluída. Fontes estruturadas recebidas.");
+
+    // Etapa 2: Preparar dados para o prompt e para a resposta final
+
+    // Formata os snippets para o modelo LER (para a "Resposta Principal")
+    const contextString = sourcesArray
+      .map(
+        (s, i) =>
+          `[Fonte ${i + 1}]\nTítulo: ${s.title}\nConteúdo: ${s.snippet}\nLink: ${s.link}`
+      )
+      .join("\n\n");
+
+    // Extrai os links para a resposta JSON final (lógica inalterada)
+    const linksArray = sourcesArray.map((s) => s.link);
+
+    // Etapa 3: Montar o prompt aumentado
+    // MODIFICADO: Instruções reforçam para NÃO USAR TÍTULOS
+    const promptWithSources = `
+    ${SYSTEM_PROMPT}
+
+    Fontes confiáveis encontradas na web (use-as para o primeiro bloco de texto):
+    ---
+    ${contextString.length > 0 ? contextString : "Nenhuma fonte encontrada."}
+    ---
+
+    INSTRUÇÕES IMPORTANTES:
+    1. Siga **exatamente** o FORMATO DE RESPOSTA OBRIGATÓRIO.
+    2. Gere o **primeiro bloco de texto** baseando-se estritamente nas fontes acima e citando-as.
+    3. Gere o **parágrafo final (separado)** usando seu conhecimento geral sobre saúde para adicionar nuances (contrapontos).
+    4. **NÃO USE TÍTULOS** como "Resposta Principal" ou "Pontos de Atenção (Contra-argumentos)".
+
+    Pergunta do usuário:
+    ${message}
+    `;
+
+    console.log("🧠 [Etapa 2] Enviando prompt aumentado para o Gemini...");
+
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
+      // Esperamos texto puro, não JSON!
       generationConfig: {
-        responseMimeType: "application/json",
+        responseMimeType: "text/plain",
       },
     });
 
-    // ===== CORREÇÕES APLICADAS AQUI =====
-
-    // 1. O retorno é 'result' (GenerateContentResult)
     const result = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: SYSTEM_PROMPT }],
-        },
-        {
-          role: "model",
-          parts: [
-            {
-              text: JSON.stringify({
-                answer:
-                  "Entendido! Estou pronto para ajudar com informações sobre saúde e bem-estar de forma responsável, acolhedora e baseada em evidências, respondendo no formato JSON solicitado.",
-                sources: [],
-              }),
-            },
-          ],
-        },
-        {
-          role: "user",
-          parts: [{ text: message }],
-        },
-      ],
+      contents: [{ role: "user", parts: [{ text: promptWithSources }] }],
     });
 
-    if (!result) {
-      return NextResponse.json(
-        { error: "Invalid response from AI model" },
-        { status: 500 }
-      );
-    }
-
-    // 2. Acessamos o objeto 'response' dentro do 'result'
     const response = result.response;
+    const modelAnswer = response.text(); // A resposta agora terá as duas seções
 
-    // 3. O texto é obtido com a FUNÇÃO .text()
-    const text = response.text();
+    console.log("📩 Resposta (texto puro) recebida do Gemini");
 
-    if (!text) {
-      // 4. 'promptFeedback' e 'candidates' estão em 'response'
-      if (response.promptFeedback?.blockReason) {
-        console.warn(
-          "Prompt bloqueado:",
-          response.promptFeedback.blockReason
-        );
-        return NextResponse.json(
-          {
-            error:
-              "A solicitação foi bloqueada por motivos de segurança: " +
-              response.promptFeedback.blockReason,
-          },
-          { status: 400 }
-        );
-      }
+    // Etapa 4: Montar o JSON final manually (lógica inalterada)
+    // Nós combinamos a resposta do modelo com os links que já tínhamos.
+    const jsonData = {
+      answer: modelAnswer.trim(),
+      sources: linksArray, // Anexa os links que encontramos na Etapa 1
+    };
 
-      // 5. 'candidates' também está em 'response'
-      const finishReason = response.candidates?.[0]?.finishReason;
-      if (finishReason && finishReason !== "STOP") {
-        console.warn("Geração interrompida:", finishReason);
-        return NextResponse.json(
-          {
-            error: "A geração da resposta foi interrompida: " + finishReason,
-          },
-          { status: 500 }
-        );
-      }
-      return NextResponse.json({ error: "No text generated" }, { status: 500 });
-    }
+    console.log("✅ JSON final montado manualmente");
 
-    // ===== FIM DAS CORREÇÕES =====
-
-    let jsonData;
-    try {
-      // Fazemos o parse da string JSON recebida da IA
-      jsonData = JSON.parse(text);
-    } catch (e) {
-      console.error("Erro ao parsear JSON da AI:", e, "Texto recebido:", text);
-      // Fallback caso a IA não retorne um JSON válido
-      jsonData = {
-        answer:
-          "⚠️ Ocorreu um erro ao processar a resposta da IA. Por favor, tente novamente.",
-        sources: [],
-      };
-    }
-
-    // Retorna o objeto JSON para o frontend
     return NextResponse.json(jsonData);
-  } catch (error)
- {
-    console.error("Error processing request:", error);
+  } catch (error) {
+    console.error("🚨 Erro geral no processamento da rota /api/chat:", error);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      {
+        answer: "Ocorreu um erro interno ao processar sua solicitação.",
+        sources: [],
+      },
       { status: 500 }
     );
   }
