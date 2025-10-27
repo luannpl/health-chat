@@ -237,7 +237,7 @@ const Index = () => {
     setIsFeedbackModalOpen(true);
     setPlaceholderText(
       value >= 3
-        ? "Obrigado pelo feedback! O que você mais gostou?"
+        ? "Obrigado pelo feedback!! O que você mais gostou?"
         : "Como podemos melhorar esta resposta?"
     );
   };
