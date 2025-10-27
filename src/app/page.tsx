@@ -89,7 +89,9 @@ const MessageContent: React.FC<{
           <ul className="list-disc list-inside space-y-0.5 pl-1">
             {sources.map((source, index) => (
               <li key={index} className="text-xs text-gray-600">
-                {source}
+                <a href={source} target="_blank" rel="noopener noreferrer">
+                  {source}
+                </a>
               </li>
             ))}
           </ul>
@@ -518,7 +520,6 @@ const Index = () => {
                 </button>
               </div>
             </form>
-            {/* r: n - removendo o 'r: n' solto que estava no seu código original */}
           </div>
         </div>
       )}
