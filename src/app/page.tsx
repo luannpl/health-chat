@@ -24,6 +24,12 @@ interface Message {
   sources?: string[]; // Novo campo para as fontes
 }
 
+// Interface para o histórico da API (como definido em route.ts)
+interface HistoryItem {
+  role: "user" | "model";
+  message: string;
+}
+
 // Componente para mensagens formatadas (Renomeado e atualizado)
 const MessageContent: React.FC<{
   content: string;
@@ -89,8 +95,14 @@ const MessageContent: React.FC<{
           <ul className="list-disc list-inside space-y-0.5 pl-1">
             {sources.map((source, index) => (
               <li key={index} className="text-xs text-gray-600">
-                <a href={source} target="_blank" rel="noopener noreferrer">
-                  {source}
+                <a
+                  href={source}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline break-all"
+                >
+                  {/* Tenta extrair um nome de host mais amigável, se falhar usa a URL */}
+                  try {new URL(source).hostname} catch(e) {source}
                 </a>
               </li>
             ))}
@@ -103,7 +115,6 @@ const MessageContent: React.FC<{
 
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
-  // ... (outros estados permanecem iguais)
   const [isTyping, setIsTyping] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -117,15 +128,13 @@ const Index = () => {
   const [placeholderText, setPlaceholderText] = useState("");
 
   const suggestions = [
-    // ... (sugestões permanecem iguais)
     { icon: Heart, text: "Como posso melhorar minha saúde cardiovascular?" },
     { icon: Brain, text: "Dicas para reduzir o estresse e ansiedade" },
     { icon: Shield, text: "Quais vitaminas são essenciais para imunidade?" },
-    { icon: Sparkles, text: "Crie um plano de exercícios personalizado" },
+    { icon: Sparkles, text: "Crie um plano de exercícios para iniciantes" },
   ];
 
   const hasRatedLastResponse = () => {
-    // ... (função permanece igual)
     if (messages.length === 0) return true;
     const lastAssistantMessage = [...messages]
       .reverse()
@@ -134,12 +143,10 @@ const Index = () => {
   };
 
   useEffect(() => {
-    // ... (useEffect permanece igual)
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
   useEffect(() => {
-    // ... (useEffect permanece igual)
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(
@@ -157,9 +164,16 @@ const Index = () => {
       content,
       role: "user",
       timestamp: new Date(),
-      // sources não se aplica ao usuário
     };
 
+    // Formata o histórico ANTES de adicionar a nova mensagem do usuário
+    // A API espera { role: "user" | "model", message: string }
+    const historyForApi: HistoryItem[] = messages.map((msg) => ({
+      role: msg.role === "assistant" ? "model" : "user", // Converte 'assistant' para 'model'
+      message: msg.content, // Converte 'content' para 'message'
+    }));
+
+    // Adiciona a nova mensagem do usuário à UI
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
     setIsTyping(true);
@@ -168,14 +182,16 @@ const Index = () => {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: content }),
+        body: JSON.stringify({
+          message: content, // A nova mensagem
+          history: historyForApi, // O histórico de conversas
+        }),
       });
 
       if (!response.ok) {
         throw new Error(`Erro na API: ${response.status}`);
       }
 
-      // MUDANÇA: Espera .json() ao invés de .text()
       const data = await response.json();
 
       if (!data.answer) {
@@ -184,8 +200,8 @@ const Index = () => {
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.answer, // Salva o 'answer'
-        sources: data.sources, // Salva as 'sources'
+        content: data.answer,
+        sources: data.sources,
         role: "assistant",
         timestamp: new Date(),
         rated: false,
@@ -201,7 +217,7 @@ const Index = () => {
         role: "assistant",
         timestamp: new Date(),
         rated: true,
-        sources: [], // Erro não tem fontes
+        sources: [],
       };
 
       setMessages((prev) => [...prev, errorMessage]);
@@ -210,7 +226,6 @@ const Index = () => {
     }
   };
 
-  // ... (handleSubmit, handleKeyDown, handleSuggestionClick, handleRate, submitFeedback, handlePostFeedback, handleCloseModal permanecem iguais)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleSendMessage(inputMessage);
@@ -275,7 +290,7 @@ const Index = () => {
 
   return (
     <div className="flex h-screen flex-col bg-gradient-to-br from-gray-50 to-teal-50">
-      {/* Header (sem alterações) */}
+      {/* Header */}
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -301,7 +316,7 @@ const Index = () => {
         <div className="h-full overflow-y-auto px-4 py-6">
           <div className="mx-auto max-w-4xl space-y-6">
             {messages.length === 0 ? (
-              /* Welcome Message (sem alterações) */
+              /* Welcome Message */
               <div className="flex flex-col items-center justify-center h-full animate-fade-in">
                 <div className="max-w-2xl text-center px-4">
                   <div className="mb-8">
@@ -371,7 +386,6 @@ const Index = () => {
                               : "bg-white border border-gray-200"
                           }`}
                         >
-                          {/* MUDANÇA: Usando MessageContent e passando sources */}
                           <MessageContent
                             content={message.content}
                             isUser={isUser}
@@ -386,7 +400,7 @@ const Index = () => {
                             })}
                           </span>
 
-                          {/* Botões de Avaliação (sem alterações) */}
+                          {/* Botões de Avaliação */}
                           {!isUser && (
                             <div className="flex items-center gap-2">
                               <Rate
@@ -404,7 +418,7 @@ const Index = () => {
                   );
                 })}
 
-                {/* Typing Indicator (sem alterações) */}
+                {/* Typing Indicator */}
                 {isTyping && (
                   <div className="flex gap-3 animate-fade-in">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-400 text-white">
@@ -433,7 +447,7 @@ const Index = () => {
         </div>
       </main>
 
-      {/* Input Area (sem alterações) */}
+      {/* Input Area */}
       <form
         onSubmit={handleSubmit}
         className="border-t border-gray-200 bg-white p-4"
@@ -472,7 +486,7 @@ const Index = () => {
         </div>
       </form>
 
-      {/* Modal de Feedback (sem alterações) */}
+      {/* Modal de Feedback */}
       {isFeedbackModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in backdrop-blur-sm">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
