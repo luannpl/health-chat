@@ -10,31 +10,30 @@ import {
   Brain,
   Shield,
   Sparkles,
-  X,
-  BookOpen, // Ícone para fontes
+  X, // 'X' não é mais usado, mas vou manter para o caso de uso futuro
+  BookOpen,
 } from "lucide-react";
 import { Rate } from "antd";
 
 interface Message {
   id: string;
-  content: string; // Agora armazena apenas o 'answer'
+  content: string;
   role: "user" | "assistant";
   timestamp: Date;
   rated?: boolean;
-  sources?: string[]; // Novo campo para as fontes
+  sources?: string[];
 }
 
-// Interface para o histórico da API (como definido em route.ts)
 interface HistoryItem {
   role: "user" | "model";
   message: string;
 }
 
-// Componente para mensagens formatadas (Renomeado e atualizado)
+// Componente para mensagens formatadas (Sem alterações)
 const MessageContent: React.FC<{
   content: string;
   isUser: boolean;
-  sources?: string[]; // Aceita fontes
+  sources?: string[];
 }> = ({ content, isUser, sources }) => {
   const hasSources = sources && sources.length > 0;
 
@@ -101,8 +100,7 @@ const MessageContent: React.FC<{
                   rel="noopener noreferrer"
                   className="hover:underline break-all"
                 >
-                  {/* Tenta extrair um nome de host mais amigável, se falhar usa a URL */}
-                  try {new URL(source).hostname} catch(e) {source}
+                  {source}
                 </a>
               </li>
             ))}
@@ -119,13 +117,15 @@ const Index = () => {
   const [inputMessage, setInputMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [rate, setRate] = useState<number | undefined>(undefined);
-  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
-  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
-    null
-  );
-  const [feedbackText, setFeedbackText] = useState("");
-  const [placeholderText, setPlaceholderText] = useState("");
+
+  // --- ESTADOS DO MODAL REMOVIDOS ---
+  // const [rate, setRate] = useState<number | undefined>(undefined);
+  // const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  // const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
+  //   null
+  // );
+  // const [feedbackText, setFeedbackText] = useState("");
+  // const [placeholderText, setPlaceholderText] = useState("");
 
   const suggestions = [
     { icon: Heart, text: "Como posso melhorar minha saúde cardiovascular?" },
@@ -167,14 +167,11 @@ const Index = () => {
       timestamp: new Date(),
     };
 
-    // Formata o histórico ANTES de adicionar a nova mensagem do usuário
-    // A API espera { role: "user" | "model", message: string }
     const historyForApi: HistoryItem[] = messages.map((msg) => ({
-      role: msg.role === "assistant" ? "model" : "user", // Converte 'assistant' para 'model'
-      message: msg.content, // Converte 'content' para 'message'
+      role: msg.role === "assistant" ? "model" : "user",
+      message: msg.content,
     }));
 
-    // Adiciona a nova mensagem do usuário à UI
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
     setIsTyping(true);
@@ -184,8 +181,8 @@ const Index = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: content, // A nova mensagem
-          history: historyForApi, // O histórico de conversas
+          message: content,
+          history: historyForApi,
         }),
       });
 
@@ -243,20 +240,7 @@ const Index = () => {
     handleSendMessage(text);
   };
 
-  const handleRate = (messageId: string, value: number) => {
-    setMessages((prev) =>
-      prev.map((msg) => (msg.id === messageId ? { ...msg, rated: true } : msg))
-    );
-    setRate(value);
-    setSelectedMessageId(messageId);
-    setIsFeedbackModalOpen(true);
-    setPlaceholderText(
-      value >= 3
-        ? "Obrigado pelo feedback!! O que você mais gostou?"
-        : "Como podemos melhorar esta resposta?"
-    );
-  };
-
+  // Função `submitFeedback` mantida, pois `handleRate` agora a utiliza
   const submitFeedback = async (rate?: number, feedback?: string) => {
     if (rate === undefined) return;
     const response = await fetch("/api/feedback", {
@@ -271,21 +255,29 @@ const Index = () => {
     console.log("Feedback enviado com sucesso");
   };
 
-  const handlePostFeedback = async (rate?: number, feedback?: string) => {
+  // --- FUNÇÃO `handleRate` ATUALIZADA ---
+  // Agora ela apenas atualiza o estado e envia o feedback para a API
+  const handleRate = async (messageId: string, value: number) => {
+    // 1. Atualiza a UI imediatamente para desabilitar as estrelas
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === messageId ? { ...msg, rated: true } : msg))
+    );
+
+    // 2. Envia o feedback (apenas a nota) para o backend
     try {
-      await submitFeedback(rate, feedback);
+      // Envia a nota (value) e 'undefined' para o texto do feedback
+      await submitFeedback(value, undefined);
     } catch (error) {
-      console.error("Erro ao enviar feedback:", error);
-    } finally {
-      handleCloseModal();
+      console.error("Erro ao enviar feedback da avaliação:", error);
+      // Opcional: Você poderia reverter o 'rated: true' aqui se o envio falhar
     }
+
+    // 3. Lógica do modal removida
   };
 
-  const handleCloseModal = () => {
-    setIsFeedbackModalOpen(false);
-    setFeedbackText("");
-    setSelectedMessageId(null);
-  };
+  // --- FUNÇÕES DO MODAL REMOVIDAS ---
+  // const handlePostFeedback = ...
+  // const handleCloseModal = ...
 
   console.log("Rendered with messages:", messages);
 
@@ -407,6 +399,7 @@ const Index = () => {
                               <Rate
                                 allowClear
                                 disabled={message.rated}
+                                // `handleRate` agora só envia a nota
                                 onChange={(value) => {
                                   handleRate(message.id, value);
                                 }}
@@ -487,56 +480,8 @@ const Index = () => {
         </div>
       </form>
 
-      {/* Modal de Feedback */}
-      {isFeedbackModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">
-                Forneça seu feedback
-              </h2>
-              <button
-                onClick={() =>
-                  handlePostFeedback(rate, feedbackText.trim() || undefined)
-                }
-                className="p-1 text-gray-400 hover:text-gray-700 rounded-full"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handlePostFeedback(rate, feedbackText.trim() || undefined);
-              }}
-            >
-              <textarea
-                value={feedbackText}
-                onChange={(e) => setFeedbackText(e.target.value)}
-                placeholder={placeholderText}
-                className="w-full h-28 resize-none rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
-              />
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={() =>
-                    handlePostFeedback(rate, feedbackText.trim() || undefined)
-                  }
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-teal-500 rounded-md hover:bg-teal-600 cursor-pointer"
-                >
-                  Enviar Feedback
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* --- MODAL DE FEEDBACK REMOVIDO --- */}
+      {/* {isFeedbackModalOpen && ( ... )} */}
     </div>
   );
 };
