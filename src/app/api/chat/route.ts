@@ -58,7 +58,7 @@ NÃO use títulos.
 
 NÃO use negrito para títulos (negrito é permitido apenas para ênfase no corpo do texto).
 
-O primeiro bloco pode conter citações no formato `[Fonte X]` se forem relevantes.
+O primeiro bloco pode conter citações no formato [Fonte X] se forem relevantes.
 
 O segundo bloco NÃO deve conter citações.
 
