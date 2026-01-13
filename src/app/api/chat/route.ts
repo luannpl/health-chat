@@ -56,6 +56,7 @@ FORMATO DE RESPOSTA OBRIGATÓRIO:
 - **NÃO use negrito** para os títulos (o negrito pode ser usado no corpo do texto para ênfase).
 - O primeiro bloco DEVE conter as citações \`[Fonte X]\` (quando as fontes forem usadas para enriquecer).
 - O segundo bloco (contrapontos e aviso) NÃO deve conter citações \`[Fonte X]\`.
+- No final sempre list 3 sugestões em forma de ações/plano para continuar a conversa.
 `;
 
 // Interface para o histórico que esperamos receber do cliente
